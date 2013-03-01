@@ -484,30 +484,43 @@ class ImportExport implements ImportUUIDBehaviorInterface
             }
             $values = array();
 
-            $xml->moveToNextElement(); // go to the value child
+            $name = self::cleanNamespace($name, $namespaceMap);
 
-            while ('value' == $xml->localName) {
-                if ($xml->isEmptyElement) {
-                    $values[] = '';
-                } else {
-                    $xml->read();
-                    if (XMLReader::END_ELEMENT == $xml->nodeType) {
-                        // this is an empty tag
+            $xml->read(); // Read to check if we have an empty element
+            if (XMLReader::END_ELEMENT !== $xml->nodeType) {
+
+                if (XMLReader::ELEMENT !== $xml->nodeType) {
+                    $xml->moveToNextElement(); // go to the value child
+                }
+
+                while ('value' == $xml->localName) {
+                    if ($xml->isEmptyElement) {
                         $values[] = '';
                     } else {
-                        $values[] = (PropertyType::BINARY == $type) ? base64_decode($xml->value) : $xml->value;
-                        $xml->read(); // consume the content
+                        $xml->read();
+                        if (XMLReader::END_ELEMENT == $xml->nodeType) {
+                            // this is an empty tag
+                            $values[] = '';
+                        } else {
+                            $values[] = (PropertyType::BINARY == $type) ? base64_decode($xml->value) : $xml->value;
+                            $xml->read(); // consume the content
+                        }
                     }
+                    $xml->read(); // consume closing tag
                 }
-                $xml->read(); // consume closing tag
+
+            } else {
+                // found an empty element
+                $values[] = '';
             }
+
 
             if (! $multiple && count($values) == 1) {
                 $values = reset($values); // unbox if it does not need to be multivalue
             }
-            $name = self::cleanNamespace($name, $namespaceMap);
 
             $properties[$name] = array('values' => $values, 'type' => $type);
+
             $xml->read();
         }
 
